@@ -3,9 +3,9 @@ import configparser
 import click
 import requests
 
+import helpers
+
 # consts
-TASKNAME = "helloapi"   
-BASE_URL = "https://tasks.aidevs.pl"
 config = configparser.ConfigParser()
 with open('config.cfg') as config_file:
     config.read_file(config_file)
@@ -16,66 +16,37 @@ def group():
     pass
 
 
-def generate_answer_body(task_name: str, answer: str) -> dict:
-    return {
-            "task": task_name,
-            "apikey": config.get("KEYS", "API_KEY"),
-            "answer": answer
-     }
+def get_task_0() -> dict:
+    url = "https://poligon.aidevs.pl/dane.txt"
+    response = requests.post(url)
+    if response.ok:
+        return response.text.splitlines()
+    else:
+        raise Exception(f"Request failed: {response.text}")
 
-def get_auth_token(api_key: str, task_name: str) -> str:
-    url = f"{BASE_URL}/token/{task_name.lower()}"
+
+def post_answer_task_0():
+    url = "https://poligon.aidevs.pl/verify"
     headers = {"Content-Type": "application/json"}
-    payload = {"apikey": api_key}
-    response = requests.post(url, json=payload, headers=headers)
-    if response.ok:
-        return response.json()  # zakładamy, że token jest zawarty w odpowiedzi JSON
+    answer = get_task_0()
+    payload = helpers.PayloadBody(
+        api_key = config.get("KEYS", "API_KEY"),
+        task_name = "POLIGON",
+        answer = answer 
+    )
+    print(answer)
+    response = requests.post(url, json=payload.to_dict(), headers=headers)
+    if response.ok and response.json()["code"] == 0:
+        print(f"Answer has been successfully sent with message: {response.json()}")
     else:
-        raise Exception(f"Błąd podczas autoryzacji: {response.text}")
+        raise Exception(f"Sending answer failed with following error: {response.json()}")
 
-
-# Krok 2: Pobieranie zadania (dane wejściowe)
-
-
-def get_task(token: str) -> dict:
-    url = f"{BASE_URL}/task/{token}"
-    response = requests.get(url)
-    if response.ok:
-        return response.json()
-    else:
-        raise Exception(f"Błąd podczas pobierania zadania: {response.text}")
-
-
-def post_answer(token: str, answer: str):
-    url = f"{BASE_URL}/answer/{token}"
-    headers = {"Content-Type": "application/json"}
-    payload = {"answer": answer}
-    response = requests.post(url, json=payload, headers=headers)
-    if response.ok:
-        print("Odpowiedź została pomyślnie przesłana.")
-    else:
-        raise Exception(f"Błąd podczas zgłaszania odpowiedzi: {response.text}")
-
-
-def _get_task_command():
-    auth_token = get_auth_token(config.get("KEYS", "API_KEY"), TASKNAME)["token"]
-    print("Token autoryzacyjny został uzyskany.")
-    task = get_task(auth_token)
-    cookie = task["cookie"]
-    post_answer(auth_token, cookie)
-    print(f"Task: {task}")
-
+def _day0_task():
+    post_answer_task_0()
 
 @group.command()
-def get_task_command():
-    _get_task_command()
-
+def day0_task():
+    _day0_task()
 
 if __name__ == "__main__":
-    # auth_token = get_auth_token(API_KEY, TASKNAME)["token"]
-    # print("Token autoryzacyjny został uzyskany.")
-    # task = get_task(auth_token)
-    # cookie = task["cookie"]
-    # post_answer(auth_token, cookie)
-    # print(f"Task: {task}")
     group()
